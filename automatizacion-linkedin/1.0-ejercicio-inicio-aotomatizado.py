@@ -9,8 +9,6 @@ class AutenticacionInterface:
     def ingresar_correo(self, correo):
         pass
 
-
-
     def ingresar_contraseña(self, contraseña):
         pass
 

@@ -104,9 +104,6 @@ class Autenticacion(AutenticacionInterface):
             print("El botón 'Registrarte' no se encontró en el tiempo especificado.")
         except Exception as e:
             print(f"Error al intentar hacer clic en el botón 'Registrarte': {e}")
-
-
-
     
     def verificar_cambio_de_pagina(self):
         try:
