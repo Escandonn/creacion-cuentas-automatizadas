@@ -2,12 +2,14 @@ import faker
 
 fake = faker.Faker()
 
-emails = []
+import pandas as pd
+
+data = []
 for _ in range(10):
     name = fake.first_name()
     last_name = fake.last_name()
     email = f"{name.lower()}{last_name.lower()}@gmail.com"
-    emails.append(email)
+    data.append({'Nombre': name, 'Apellido': last_name, 'Correo': email})
 
-for email in emails:
-    print(email)
+matrix = pd.DataFrame(data)
+print(matrix)
