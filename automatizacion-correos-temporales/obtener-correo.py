@@ -12,8 +12,6 @@ class AutenticacionInterface:
     def presionar_boton_obtener_correo(self):
         pass
 
-
-
 class Autenticacion(AutenticacionInterface):
     def __init__(self, driver):
         self.driver = driver

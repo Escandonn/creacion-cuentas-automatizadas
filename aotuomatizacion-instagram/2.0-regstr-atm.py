@@ -1,15 +1,77 @@
 from lib2to3.pgen2 import driver
+from pyclbr import Class
 import random
+import re
+from ssl import Options
 import time
+from weakref import ProxyType
 from httpcore import TimeoutException
+from httpx import Proxy
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 import faker
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 
 fake = faker.Faker()
+
+class CodigoVerificacionGmail:
+    def __init__(self, email):
+        self.email = email
+        self.username = email.split('@')[0]
+        self.domain = "1secmail.com"
+    
+    def check_inbox(self):
+        url = f"https://www.1secmail.com/api/v1/?action=getMessages&login={self.username}&domain={self.domain}"
+        response = requests.get(url)
+        messages = response.json()
+        
+        if messages:
+            for message in messages:
+                # Filtrar mensajes de verificación de Instagram
+                if 'instagram' in message['subject'].lower():
+                    print(f"Correo de verificación encontrado con ID: {message['id']}")
+                    return message['id']
+        return None
+    
+    def get_message(self, message_id):
+        url = f"https://www.1secmail.com/api/v1/?action=readMessage&login={self.username}&domain={self.domain}&id={message_id}"
+        response = requests.get(url)
+        message = response.json()
+        
+        # Verifica las posibles claves donde podría estar el contenido del mensaje
+        if 'text' in message:
+            return message['text']
+        elif 'body' in message:
+            return message['body']
+        else:
+            raise KeyError("El contenido del mensaje no se encuentra en las claves esperadas.")
+    
+    def extract_verification_code(self, message_text):
+        # Utilizar expresión regular para encontrar un código de verificación en el correo
+        match = re.search(r'\b\d{6}\b', message_text)  # Ajusta el patrón según el formato del código
+        if match:
+            return match.group(0)
+        return None
+    
+    def esperar_verificacion(self):
+        print("Esperando correo de verificación...")
+        while True:
+            message_id = self.check_inbox()
+            if message_id:
+                message_content = self.get_message(message_id)
+                verification_code = self.extract_verification_code(message_content)
+                if verification_code:
+                    print(f"Código de verificación recibido: {verification_code}")
+                    return verification_code
+                else:
+                    print("Código de verificación no encontrado en el mensaje.")
+                break
+            time.sleep(5)  # Esperar 30 segundos antes de volver a comprobar
 
 # Interface para la autenticación
 class AutenticacionInterface:
@@ -63,6 +125,18 @@ class AutenticacionInterface:
 
     def mantener_sesion(self):
         pass
+
+
+    def vericacion_codigo_instagram(self):
+        pass
+
+
+    def esperar_inicio_seccion(self):
+        pass
+
+
+    def obtener_cookies(self):
+        pass
     
 
 # Clase que implementa la autenticación
@@ -94,7 +168,7 @@ class Autenticacion(AutenticacionInterface):
         for char in nombreCom:
     
             password_input.send_keys(char)
-            time.sleep(0.1)
+            time.sleep(0.3)
 
 
     def ingresar_nombre_intagram_prederter(self):
@@ -158,54 +232,10 @@ class Autenticacion(AutenticacionInterface):
     
         return  dia, mes, año
     
-    def ingresar_mes(self,mes):
-        try:
-                # Localizar el menú desplegable de mes
-                select_element = self.driver.find_element(By.CSS_SELECTOR, 'select._aau-._ap32[title="Mes:"]')
-                
-                # Crear una instancia de Select con el elemento del menú desplegable
-                select = Select(select_element)
-                
-                # Seleccionar la opción basada en el valor proporcionado
-                select.select_by_value(str(mes))
-                
-                print(f"El mes '{mes}' ha sido seleccionado correctamente.")
-    
-        except Exception as e:
-                print(f"No se pudo seleccionar el mes '{mes}'.", e)
-    
-    def ingresar_dia(self,dia):
-        try:
-                # Localizar el menú desplegable de mes
-                select_element = self.driver.find_element(By.CSS_SELECTOR, 'select._aau-._ap32[title="Día:"]')
-                
-                # Crear una instancia de Select con el elemento del menú desplegable
-                select = Select(select_element)
-                
-                # Seleccionar la opción basada en el valor proporcionado
-                select.select_by_value(str(dia))
-                
-                print(f"El mes '{dia}' ha sido seleccionado correctamente.")
-    
-        except Exception as e:
-                print(f"No se pudo seleccionar el mes '{dia}'.", e)
-    
-
-    def ingresar_año(self, año):
-        try:
-                # Localizar el menú desplegable de mes
-                select_element = self.driver.find_element(By.CSS_SELECTOR, 'select._aau-._ap32[title="Año:"]')
-                
-                # Crear una instancia de Select con el elemento del menú desplegable
-                select = Select(select_element)
-                
-                # Seleccionar la opción basada en el valor proporcionado
-                select.select_by_value(str(año))
-                
-                print(f"El mes '{año}' ha sido seleccionado correctamente.")
-    
-        except Exception as e:
-                print(f"No se pudo seleccionar el mes '{año}'.", e)
+    def seleccionar_fecha_nacimiento(self, dia, mes, año):
+        Select(self.driver.find_element(By.CSS_SELECTOR, 'select[title="Mes:"]')).select_by_value(str(mes))
+        Select(self.driver.find_element(By.CSS_SELECTOR, 'select[title="Día:"]')).select_by_value(str(dia))
+        Select(self.driver.find_element(By.CSS_SELECTOR, 'select[title="Año:"]')).select_by_value(str(año))
 
     
     def hacer_clic_en_boton_fecha(self):
@@ -238,19 +268,77 @@ class Autenticacion(AutenticacionInterface):
             self.cerrar_navegador()
             print("Navegador cerrado.")
 
+    def vericacion_codigo_instagram(self,codigo):
+        password_input = self.driver.find_element(By.NAME, "email_confirmation_code")
+        for char in codigo:
+            password_input.send_keys(char)
+            time.sleep(0.1)
+    
+
+    def presionar_botton_verificacion(self):
+        try:
+            # Esperar hasta que el botón "Siguiente" sea visible
+            button = WebDriverWait(self.driver, 10).until(
+                   
+                EC.element_to_be_clickable((By.XPATH, "//div[@role='button' and text()='Siguiente']"))
+            )
+            # Hacer clic en el botón
+            button.click()
+
+        except TimeoutException:
+            print("El botón 'Siguiente' no se encontró en el tiempo especificado o no se habilitó.")
+        except Exception as e:
+            print(f"Error al intentar hacer clic en el botón 'Siguiente': {e}")
+    
+    def esperar_inicio_seccion(self):
+         # Esperar hasta que el inicio de sesión sea exitoso (verificar con la presencia de un elemento del dashboard)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//div[text()='Inicio']")))
+        print("Inicio de sesión exitoso.")
+
+
+
 # Clase que configura el navegador
 class Navegador:
-    def __init__(self):
-        self.driver = webdriver.Chrome()  # Cambia a otro navegador si lo deseas
+    def __init__(self, proxy=None):
+        chrome_options = Options()
+
+        # # Activar modo incógnito para mayor anonimato
+        # chrome_options.add_argument("--incognito")
+
+        # Deshabilitar el rastreo de automatización del navegador
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--disable-infobars")
+
+        # Opciones adicionales
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        # Configurar proxy si es proporcionado
+        if proxy:
+            chrome_proxy = Proxy()
+            chrome_proxy.proxy_type = ProxyType.MANUAL
+            chrome_proxy.http_proxy = proxy
+            chrome_proxy.ssl_proxy = proxy
+            chrome_options.proxy = chrome_proxy
+            chrome_options.add_argument(f'--proxy-server={proxy}')
+
+        # Inicializar el driver de Chrome con las opciones configuradas
+        self.driver = webdriver.Chrome(options=chrome_options)
 
     def abrir_pagina(self, url):
         self.driver.get(url)
 
+    def obtener_cookies(self):
+        # Obtener las cookies de sesión
+        cookies = self.driver.get_cookies()
+        return cookies
+    
+
     def cerrar_navegador(self):
         self.driver.quit()
 
-# clase que  configura codigo verificacion gmail
-    
+
+
 # Clase que coordina la autenticación
 class CoordinadorAutenticacion:
     def __init__(self, navegador, autenticacion):
@@ -258,6 +346,10 @@ class CoordinadorAutenticacion:
         self.autenticacion = autenticacion
 
     def autenticar(self, contraseña):
+
+        # Ejemplo de proxy: "35.185.196.38:3128"
+        navegador = Navegador(proxy="164.163.42.20:10000")
+
         # Abrir la página de registro de Instagram
         self.navegador.abrir_pagina("https://www.instagram.com/accounts/emailsignup/")
         
@@ -284,23 +376,37 @@ class CoordinadorAutenticacion:
         dia, mes, año = self.autenticacion.genereador_fecha_nacimiento()
 
         # Ingresar fecha de nacimiento
-        self.autenticacion.ingresar_dia(dia)
-        self.autenticacion.ingresar_mes(mes)
-        self.autenticacion.ingresar_año(año)
+        self.autenticacion.seleccionar_fecha_nacimiento(dia, mes, año)
 
         # Hacer clic en el botón de fecha
         self.autenticacion.hacer_clic_en_boton_fecha()
 
-        # Mantener la sesión activa durante 15 minutos
-        self.autenticacion.mantener_sesion(900)  # 15 minutos en segundos
+        # Esperar y obtener el código de verificacióna
+        # VERIFICACION INTAGRAM
+        codigo_verificacion = CodigoVerificacionGmail(correo)
+        codigo = codigo_verificacion.esperar_verificacion()
 
+        print(f"El código de verificación de Instagram es: {codigo}")
 
+        # # Mantener la sesión activa durante 15 minutos
+        # self.autenticacion.mantener_sesion(900)  # 15 minutos en segundos
 
+        # Ingresar el código de verificación
+        self.autenticacion.vericacion_codigo_instagram(codigo)
 
-        
-        print("REGISTRO EXITOSO!")
-        # Puedes cerrar el navegador después del registro
-        # self.navegador.cerrar_navegador()
+        # Hacer clic en el botón de verificación
+        self.autenticacion.presionar_botton_verificacion()
+
+        time.sleep(35)
+
+        # Una vez que has iniciado sesión, obtén las cookies
+        cookies = navegador.obtener_cookies()
+
+        # imprimit cookies
+        print("Cookies:")
+        for cookie in cookies:
+            print(f"{cookie['name']} = {cookie['value']}")
+
 
 # Uso
 navegador = Navegador()
